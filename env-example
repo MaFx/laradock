@@ -298,7 +298,7 @@ VARNISH_PROXY2_SERVER=SERVER2
 ### JENKINS ###############################################
 
 JENKINS_HOST_HTTP_PORT=8090
-JErNKINS_HOST_SLAVE_AGENT_PORT=50000
+JENKINS_HOST_SLAVE_AGENT_PORT=50000
 JENKINS_HOME=./jenkins/jenkins_home
 
 ### GRAFANA ###############################################

@@ -961,6 +961,23 @@ RUN if [ $INSTALL_PHALCON = true ]; then \
 ;fi
 
 ###########################################################################
+# ImageMagick:
+###########################################################################
+
+USER root
+
+ARG INSTALL_IMAGEMAGICK=false
+
+RUN if [ ${INSTALL_IMAGEMAGICK} = true ]; then \
+    apt-get install -y libmagickwand-dev imagemagick && \
+    pecl install imagick && \
+    docker-php-ext-enable imagick  && \
+    ln -s /usr/bin/mogrify /usr/local/bin/mogrify && \
+    ln -s /usr/bin/identify /usr/local/bin/identify && \
+    ln -s /usr/bin/convert /usr/local/bin/convert \
+;fi
+
+###########################################################################
 # MySQL Client:
 ###########################################################################
 

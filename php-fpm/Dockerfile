@@ -45,8 +45,13 @@ RUN set -xe; \
       docker-php-ext-configure zip --with-libzip && \
       # Install the zip extension
       docker-php-ext-install zip && \
-      php -m | grep -q 'zip'
+      php -m | grep -q 'zip' && \
 
+      apt-get install -y locales && \
+      echo "en_GB.UTF-8 UTF-8" > /etc/locale.gen && \
+      dpkg-reconfigure locales
+
+RUN docker-php-ext-install gettext
 #
 #--------------------------------------------------------------------------
 # Optional Software's Installation

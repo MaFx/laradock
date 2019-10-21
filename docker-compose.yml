@@ -192,6 +192,39 @@ services:
       networks:
         - backend
 
+### NGINX Server #########################################
+    nginx:
+      build:
+        context: ./nginx
+        args:
+          - PHP_UPSTREAM_CONTAINER=${NGINX_PHP_UPSTREAM_CONTAINER}
+          - PHP_UPSTREAM_PORT=${NGINX_PHP_UPSTREAM_PORT}
+          - CHANGE_SOURCE=${CHANGE_SOURCE}
+      volumes:
+        - ${APP_CODE_PATH_HOST}:${APP_CODE_PATH_CONTAINER}${APP_CODE_CONTAINER_FLAG}
+        - ${NGINX_HOST_LOG_PATH}:/var/log/nginx
+        - ${NGINX_SITES_PATH}:/etc/nginx/sites-available
+        - ${NGINX_SSL_PATH}:/etc/nginx/ssl
+      ports:
+        - "${NGINX_HOST_HTTP_PORT}:80"
+        - "${NGINX_HOST_HTTPS_PORT}:443"
+      depends_on:
+        - php-fpm
+      networks:
+        - frontend
+        - backend
+
+### Blackfire ########################################
+    blackfire:
+      image: blackfire/blackfire
+      environment:
+        - BLACKFIRE_SERVER_ID=${BLACKFIRE_SERVER_ID}
+        - BLACKFIRE_SERVER_TOKEN=${BLACKFIRE_SERVER_TOKEN}
+      depends_on:
+        - php-fpm
+      networks:
+        - backend
+
 ### Apache Server ########################################
     apache2:
       build:
@@ -232,7 +265,64 @@ services:
       ports:
         - "${MYSQL_PORT}:3306"
       networks:
-        - ba
+        - backend
+
+### MSSQL ################################################
+    mssql:
+      build:
+        context: ./mssql
+      environment:
+        - MSSQL_DATABASE=${MSSQL_DATABASE}
+        - SA_PASSWORD=${MSSQL_PASSWORD}
+        - ACCEPT_EULA=Y
+      volumes:
+        - ${DATA_PATH_HOST}/mssql:/var/opt/mssql
+      ports:
+        - "${MSSQL_PORT}:1433"
+      networks:
+        - backend
+
+### MariaDB ##############################################
+    mariadb:
+      build: ./mariadb
+      volumes:
+        - ${DATA_PATH_HOST}/mariadb:/var/lib/mysql
+        - ${MARIADB_ENTRYPOINT_INITDB}:/docker-entrypoint-initdb.d
+      ports:
+        - "${MARIADB_PORT}:3306"
+      environment:
+        - MYSQL_DATABASE=${MARIADB_DATABASE}
+        - MYSQL_USER=${MARIADB_USER}
+        - MYSQL_PASSWORD=${MARIADB_PASSWORD}
+        - MYSQL_ROOT_PASSWORD=${MARIADB_ROOT_PASSWORD}
+      networks:
+        - backend
+
+### PostgreSQL ###########################################
+    postgres:
+      build: ./postgres
+      volumes:
+        - ${DATA_PATH_HOST}/postgres:/var/lib/postgresql/data
+        - ${POSTGRES_ENTRYPOINT_INITDB}:/docker-entrypoint-initdb.d
+      ports:
+        - "${POSTGRES_PORT}:5432"
+      environment:
+        - POSTGRES_DB=${POSTGRES_DB}
+        - POSTGRES_USER=${POSTGRES_USER}
+        - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      networks:
+        - backend
+
+### MongoDB ##############################################
+    mongo:
+      build: ./mongo
+      ports:
+        - "${MONGODB_PORT}:27017"
+      volumes:
+        - ${DATA_PATH_HOST}/mongo:/data/db
+      networks:
+        - backend
+
 ### Redis ################################################
     redis:
       build: ./redis
@@ -255,6 +345,111 @@ services:
       networks:
         - backend
 
+### Beanstalkd ###########################################
+    beanstalkd:
+      build: ./beanstalkd
+      ports:
+        - "${BEANSTALKD_HOST_PORT}:11300"
+      privileged: true
+      depends_on:
+        - php-fpm
+      networks:
+        - backend
+
+### RabbitMQ #############################################
+    rabbitmq:
+      build: ./rabbitmq
+      ports:
+        - "${RABBITMQ_NODE_HOST_PORT}:5672"
+        - "${RABBITMQ_MANAGEMENT_HTTP_HOST_PORT}:15672"
+        - "${RABBITMQ_MANAGEMENT_HTTPS_HOST_PORT}:15671"
+      privileged: true
+      environment:
+        - RABBITMQ_DEFAULT_USER=${RABBITMQ_DEFAULT_USER}
+        - RABBITMQ_DEFAULT_PASS=${RABBITMQ_DEFAULT_PASS}
+      hostname: laradock-rabbitmq
+      volumes:
+        - ${DATA_PATH_HOST}/rabbitmq:/var/lib/rabbitmq
+      depends_on:
+        - php-fpm
+      networks:
+        - backend
+
+### Selenium ###############################################
+    selenium:
+      build: ./selenium
+      ports:
+        - "${SELENIUM_PORT}:4444"
+      volumes:
+        - /dev/shm:/dev/shm
+      networks:
+        - frontend
+
+### Varnish ##########################################
+    proxy:
+      build: ./varnish
+      expose:
+        - ${VARNISH_PORT}
+      environment:
+        - VARNISH_CONFIG=${VARNISH_CONFIG}
+        - CACHE_SIZE=${VARNISH_PROXY1_CACHE_SIZE}
+        - VARNISHD_PARAMS=${VARNISHD_PARAMS}
+        - VARNISH_PORT=${VARNISH_PORT}
+        - BACKEND_HOST=${VARNISH_PROXY1_BACKEND_HOST}
+        - BACKEND_PORT=${VARNISH_BACKEND_PORT}
+        - VARNISH_SERVER=${VARNISH_PROXY1_SERVER}
+      links:
+        - workspace
+      networks:
+        - frontend
+
+    proxy2:
+      build: ./varnish
+      expose:
+        - ${VARNISH_PORT}
+      environment:
+        - VARNISH_CONFIG=${VARNISH_CONFIG}
+        - CACHE_SIZE=${VARNISH_PROXY2_CACHE_SIZE}
+        - VARNISHD_PARAMS=${VARNISHD_PARAMS}
+        - VARNISH_PORT=${VARNISH_PORT}
+        - BACKEND_HOST=${VARNISH_PROXY2_BACKEND_HOST}
+        - BACKEND_PORT=${VARNISH_BACKEND_PORT}
+        - VARNISH_SERVER=${VARNISH_PROXY2_SERVER}
+      links:
+        - workspace
+      networks:
+        - frontend
+
+### Jenkins ###################################################
+    jenkins:
+      build: ./jenkins
+      environment:
+        JAVA_OPTS: "-Djava.awt.headless=true"
+      ports:
+        - "${JENKINS_HOST_SLAVE_AGENT_PORT}:50000"
+        - "${JENKINS_HOST_HTTP_PORT}:8080"
+      privileged: true
+      volumes:
+        - ${JENKINS_HOME}:/var/jenkins_home
+        - /var/run/docker.sock:/var/run/docker.sock
+      networks:
+        - frontend
+        - backend
+
+### Solr ################################################
+    solr:
+      build:
+        context: ./solr
+        args:
+          - SOLR_VERSION=${SOLR_VERSION}
+          - SOLR_DATAIMPORTHANDLER_MYSQL=${SOLR_DATAIMPORTHANDLER_MYSQL}
+          - SOLR_DATAIMPORTHANDLER_MSSQL=${SOLR_DATAIMPORTHANDLER_MSSQL}
+      volumes:
+        - ${DATA_PATH_HOST}/solr:/opt/solr/server/solr/mycores
+      ports:
+        - "${SOLR_PORT}:8983"
+      networks:
+        - backend
 
 ### Docker-in-Docker ################################################
     docker-in-docker:
